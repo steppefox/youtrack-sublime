@@ -10,11 +10,11 @@ __version__ = '0.1'
 import sublime, sublime_plugin, json
 
 import glob
-# import os
+import os
 # import platform
 # import sys
 import urllib.request
-# import os.path
+# import os.system
 # import http.cookiejar
 
 # import time
@@ -34,7 +34,7 @@ HOST = SETTINGS.get('host')
 COOKIES = []
 PROJECTS_LIST = []
 ISSUE_LIST = []
-CURRENT_PROJECT
+CURRENT_PROJECT = None
 
 def sendRequest(url,data=[]):
     # print(data)
@@ -55,18 +55,8 @@ def sendRequest(url,data=[]):
 
 class YoutrackConnectCommand(sublime_plugin.TextCommand):
     global CURRENT_PROJECT
-    def onProjectSelected(self,item):
-        CURRENT_PROJECT = PROJECTS_LIST[item]
-        res = sendRequest('/rest/issue',{'filter':'for #'+SETTINGS.get('login')+' #'+CURRENT_PROJECT+' State: Open'})
-        res_issue_list = res.get('issue')
-        panel_list = []
-        for issue in res_issue_list:
-            summary = ''
-            for field in issue['field']:
-                if(field['name']=='summary'):
-                    summary = field['value']
-            panel_list.append(issue.get('id')+' '+summary)
-        sublime.set_timeout(lambda: self.view.window().show_quick_panel(panel_list, None, sublime.MONOSPACE_FONT),200)
+    global SETTINGS
+
 
     def run(self, edit):
         print("Plugin starts")
@@ -74,7 +64,7 @@ class YoutrackConnectCommand(sublime_plugin.TextCommand):
         values = {'login':SETTINGS.get('login'),'password':SETTINGS.get('pass')}
         data = urllib.parse.urlencode(values)
         data = data.encode('utf-8') # data should be byte
-        response = urllib.request.urlopen(HOST+'/rest/user/login',data)
+        response = urllib.request.urlopen(SETTINGS.get('host')+'/rest/user/login',data)
         html = response.read()
         headers = response.info()
         # Remember auth cookies
@@ -89,3 +79,27 @@ class YoutrackConnectCommand(sublime_plugin.TextCommand):
             PROJECTS_LIST.append(row['shortName'])
 
         self.view.window().show_quick_panel(PROJECTS_LIST, self.onProjectSelected, sublime.MONOSPACE_FONT)
+
+    def onProjectSelected(self,item):
+        CURRENT_PROJECT = PROJECTS_LIST[item]
+        res = sendRequest('/rest/issue',{'filter':'for #'+SETTINGS.get('login')+' #'+CURRENT_PROJECT+' State: Open'})
+        res_issue_list = res.get('issue')
+        print(res_issue_list)
+        issues_list = []
+        for issue in res_issue_list:
+            summary = ''
+            estimation = ''
+            issue['jsonFields'] = {}
+            for field in issue['field']:
+                issue['jsonFields'][field['name']] = field['value']
+            estimation = issue['jsonFields']['Estimation'][0]+'m.'
+            issues_list.append(issue.get('id')+' '+issue['jsonFields']['summary']+' | '+estimation)
+        project_data = self.view.window().project_data()
+        project_folder = project_data['folders'][0]['path']
+        print(os.system('cd '+project_folder+'; ls -lah; touch lol.test'))
+        # Show issues list
+        sublime.set_timeout(lambda: self.view.window().show_quick_panel(issues_list, self.onIssueSelected, sublime.MONOSPACE_FONT),200)
+
+    def onIssueSelected(self,item):
+        sublime.set_timeout(lambda: self.view.window().show_input_panel('Write commit message', 'initial_text', None, None, None),200)
+
