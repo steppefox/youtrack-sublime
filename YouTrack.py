@@ -55,11 +55,14 @@ def sendRequest(url,data=[]):
 
 class YoutrackConnectCommand(sublime_plugin.TextCommand):
     global CURRENT_PROJECT
-    global SETTINGS
-
 
     def run(self, edit):
-        print("Plugin starts")
+
+        if(os.path.isfile(PLUGIN_DIR+'/YouTrack.local.sublime-settings')):
+            SETTINGS = sublime.load_settings("YouTrack.local.sublime-settings")
+        else:
+            SETTINGS = sublime.load_settings("YouTrack.sublime-settings")
+
         # Login in YouTrack
         values = {'login':SETTINGS.get('login'),'password':SETTINGS.get('pass')}
         data = urllib.parse.urlencode(values)
